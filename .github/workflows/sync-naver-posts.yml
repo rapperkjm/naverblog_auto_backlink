@@ -1,0 +1,49 @@
+name: Sync Naver Posts
+
+on:
+  workflow_dispatch:
+  schedule:
+    # UTC 기준입니다. 한국시간 13:10 = UTC 04:10
+    - cron: '10 4 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    env:
+      NAVER_BLOG_IDS: ${{ secrets.NAVER_BLOG_IDS }}
+      SITE_ORIGIN: ${{ secrets.SITE_ORIGIN }}
+      SITEMAP_CHUNK_SIZE: 1000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync posts and generate sitemap
+        run: npm run sync:naver
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet src/lib/server/generated-posts.json static/sitemap.xml static/sitemaps static/robots.txt; then
+            echo "No changes in generated posts or static sitemap"
+            exit 0
+          fi
+
+          git add src/lib/server/generated-posts.json static/sitemap.xml static/sitemaps static/robots.txt
+          git commit -m "Update generated Naver posts and sitemap"
+          git push

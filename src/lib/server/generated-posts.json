@@ -1,0 +1,20 @@
+[
+  {
+    "blogId": "sample-blog",
+    "logNo": "223000000002",
+    "title": "자동 수집 샘플 글 1",
+    "url": "https://blog.naver.com/sample-blog/223000000002",
+    "descriptionText": "전자책 샘플용 generated-posts.json 데이터입니다.",
+    "publishedAt": "2026-01-02T00:00:00.000Z",
+    "source": "generated"
+  },
+  {
+    "blogId": "sample-blog",
+    "logNo": "223000000003",
+    "title": "자동 수집 샘플 글 2",
+    "url": "https://blog.naver.com/sample-blog/223000000003",
+    "descriptionText": "실제 공개 레포에는 개인 블로그 전체 글을 넣지 않는 것을 권장합니다.",
+    "publishedAt": "2026-01-03T00:00:00.000Z",
+    "source": "generated"
+  }
+]
