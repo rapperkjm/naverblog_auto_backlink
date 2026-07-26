@@ -1,86 +1,103 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const rootDir = join(__dirname, '..');
-const staticDir = join(rootDir, 'static');
-const sitemapsDir = join(staticDir, 'sitemaps');
-const generatedPostsPath = join(rootDir, 'src', 'lib', 'server', 'generated-posts.json');
+const projectRoot = process.cwd();
+const staticDir = join(projectRoot, 'static');
 
-const siteOrigin = String(process.env.SITE_ORIGIN || 'https://your-project.vercel.app').replace(/\/$/, '');
-const chunkSize = Math.max(1, Number(process.env.SITEMAP_CHUNK_SIZE || 1000));
+/**
+ * 로컬 실행 시 프로젝트 루트의 .env 값을 간단히 읽습니다.
+ * Vercel/GitHub Actions에서는 이미 등록된 환경변수를 우선 사용합니다.
+ */
+async function loadLocalEnv() {
+	try {
+		const envText = await readFile(join(projectRoot, '.env'), 'utf8');
+
+		for (const rawLine of envText.split(/\r?\n/)) {
+			const line = rawLine.trim();
+
+			if (!line || line.startsWith('#')) {
+				continue;
+			}
+
+			const separatorIndex = line.indexOf('=');
+
+			if (separatorIndex < 1) {
+				continue;
+			}
+
+			const key = line.slice(0, separatorIndex).trim();
+			let value = line.slice(separatorIndex + 1).trim();
+
+			if (
+				(value.startsWith('"') && value.endsWith('"')) ||
+				(value.startsWith("'") && value.endsWith("'"))
+			) {
+				value = value.slice(1, -1);
+			}
+
+			if (!process.env[key]) {
+				process.env[key] = value;
+			}
+		}
+	} catch {
+		// .env가 없는 배포 환경에서는 등록된 환경변수를 사용합니다.
+	}
+}
 
 function escapeXml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;');
+	return String(value)
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;')
+		.replaceAll("'", '&apos;');
 }
 
-function toBacklinkUrl(post) {
-  return `${siteOrigin}/nb/${encodeURIComponent(post.blogId)}/${encodeURIComponent(post.logNo)}`;
+await loadLocalEnv();
+
+const siteOrigin = String(process.env.SITE_ORIGIN ?? '').replace(/\/+$/, '');
+
+if (!siteOrigin) {
+	throw new Error('SITE_ORIGIN 환경변수가 필요합니다.');
 }
 
-function uniquePosts(posts) {
-  const map = new Map();
-  for (const post of posts) {
-    if (!post?.blogId || !post?.logNo) continue;
-    map.set(`${post.blogId}:${post.logNo}`, post);
-  }
-  return [...map.values()];
-}
+/**
+ * 검색결과에 남길 Vercel 허브 페이지만 넣습니다.
+ * 리디렉션되는 /nb/... 주소는 넣지 않습니다.
+ *
+ * 이후 /blog/rapperkjm/1 같은 고유한 목록 페이지를 만들면
+ * 이 배열에 추가할 수 있습니다.
+ */
+const siteUrls = [`${siteOrigin}/`];
 
-function chunk(items, size) {
-  const chunks = [];
-  for (let index = 0; index < items.length; index += size) {
-    chunks.push(items.slice(index, index + size));
-  }
-  return chunks.length ? chunks : [[]];
-}
+const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${siteUrls
+	.map(
+		(url) => `\t<url>
+\t\t<loc>${escapeXml(url)}</loc>
+\t</url>`
+	)
+	.join('\n')}
+</urlset>
+`;
 
-function buildUrlSet(posts) {
-  const urls = posts
-    .map((post) => {
-      const lastmod = post.publishedAt ? `\n    <lastmod>${escapeXml(post.publishedAt.slice(0, 10))}</lastmod>` : '';
-      return `  <url>\n    <loc>${escapeXml(toBacklinkUrl(post))}</loc>${lastmod}\n  </url>`;
-    })
-    .join('\n');
+const robotsText = `User-agent: *
+Allow: /
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
-}
-
-function buildSitemapIndex(fileNames) {
-  const items = fileNames
-    .map(
-      (fileName) =>
-        `  <sitemap>\n    <loc>${escapeXml(`${siteOrigin}/sitemaps/${fileName}`)}</loc>\n  </sitemap>`
-    )
-    .join('\n');
-
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${items}\n</sitemapindex>\n`;
-}
-
-function buildRobotsTxt() {
-  return `User-agent: *\nAllow: /\n\nSitemap: ${siteOrigin}/sitemap.xml\n`;
-}
-
-const generatedPosts = JSON.parse(await readFile(generatedPostsPath, 'utf-8'));
-const posts = uniquePosts(generatedPosts);
-const chunks = chunk(posts, chunkSize);
-const fileNames = chunks.map((_, index) => `sitemap-${index + 1}.xml`);
+Sitemap: ${siteOrigin}/sitemap.xml
+`;
 
 await mkdir(staticDir, { recursive: true });
-await rm(sitemapsDir, { recursive: true, force: true });
-await mkdir(sitemapsDir, { recursive: true });
 
-await Promise.all(
-  chunks.map((postsInChunk, index) => writeFile(join(sitemapsDir, fileNames[index]), buildUrlSet(postsInChunk)))
-);
-await writeFile(join(staticDir, 'sitemap.xml'), buildSitemapIndex(fileNames));
-await writeFile(join(staticDir, 'robots.txt'), buildRobotsTxt());
+// 기존 분할 sitemap에는 /nb/... 주소가 들어 있으므로 제거합니다.
+await rm(join(staticDir, 'sitemaps'), {
+	recursive: true,
+	force: true
+});
 
-console.log(`Generated ${fileNames.length} sitemap file(s) for ${posts.length} post(s).`);
-console.log(`Sitemap index: ${siteOrigin}/sitemap.xml`);
+await writeFile(join(staticDir, 'sitemap.xml'), sitemapXml, 'utf8');
+await writeFile(join(staticDir, 'robots.txt'), robotsText, 'utf8');
+
+console.log(`Generated sitemap for ${siteUrls.length} hub page(s).`);
+console.log(`Sitemap: ${siteOrigin}/sitemap.xml`);

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <sitemap>
-    <loc>https://your-project.vercel.app/sitemaps/sitemap-1.xml</loc>
-  </sitemap>
-</sitemapindex>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+	<url>
+		<loc>https://naver-blog-auto-back-link.vercel.app/</loc>
+	</url>
+</urlset>

@@ -12,8 +12,8 @@ export const GET: RequestHandler = async () => {
       const link = toBacklinkUrl(config.siteOrigin, post.blogId, post.logNo);
       return `  <item>
     <title>${escapeXml(post.title)}</title>
-    <link>${escapeXml(link)}</link>
-    <guid>${escapeXml(link)}</guid>
+    <link>${escapeXml(post.url)}</link>
+    <guid isPermaLink="true">${escapeXml(post.url)}</guid>
     ${post.publishedAt ? `<pubDate>${new Date(post.publishedAt).toUTCString()}</pubDate>` : ''}
     <description>${escapeXml(post.descriptionText ?? '')}</description>
   </item>`;

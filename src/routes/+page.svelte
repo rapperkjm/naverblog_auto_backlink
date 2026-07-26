@@ -30,7 +30,13 @@
       <ul>
         {#each data.posts as post}
           <li>
-            <a href={resolve(`/nb/${post.blogId}/${post.logNo}`)}>{post.title}</a>
+            <a
+              href={post.url}
+              target="_blank"
+              rel="external noopener noreferrer"
+            >
+              {post.title}
+            </a>
             <p>{post.descriptionText}</p>
             <small>{post.blogId} · {post.logNo} · {post.source}</small>
           </li>

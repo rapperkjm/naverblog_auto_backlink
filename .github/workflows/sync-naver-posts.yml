@@ -39,11 +39,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet src/lib/server/generated-posts.json static/sitemap.xml static/sitemaps static/robots.txt; then
-            echo "No changes in generated posts or static sitemap"
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes"
             exit 0
           fi
 
-          git add src/lib/server/generated-posts.json static/sitemap.xml static/sitemaps static/robots.txt
+          git add src/lib/server/generated-posts.json
+          git add -A static
           git commit -m "Update generated Naver posts and sitemap"
           git push
