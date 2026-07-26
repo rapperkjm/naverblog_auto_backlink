@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { resolve } from '$app/paths';
+  import { base, resolve } from '$app/paths';
   import type { PageProps } from './$types';
 
   let { data }: PageProps = $props();
@@ -16,9 +16,9 @@
     <h1>{data.siteTitle}</h1>
     <p>{data.siteDescription}</p>
     <div class="actions">
-      <a href={resolve('/sitemap.xml')}>sitemap.xml 보기</a>
+      <a href={`${base}/sitemap.xml`}>sitemap.xml 보기</a>
       <a href={resolve('/feed.xml')}>feed.xml 보기</a>
-      <a href={resolve('/robots.txt')}>robots.txt 보기</a>
+      <a href={`${base}/robots.txt`}>robots.txt 보기</a>
     </div>
   </section>
 
