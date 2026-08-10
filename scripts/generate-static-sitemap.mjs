@@ -1,13 +1,15 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+	mkdir,
+	readFile,
+	rm,
+	writeFile
+} from 'node:fs/promises';
 import { join } from 'node:path';
 
 const projectRoot = process.cwd();
 const staticDir = join(projectRoot, 'static');
+const ARCHIVE_PAGE_SIZE = 100;
 
-/**
- * 로컬 실행 시 프로젝트 루트의 .env 값을 간단히 읽습니다.
- * Vercel/GitHub Actions에서는 이미 등록된 환경변수를 우선 사용합니다.
- */
 async function loadLocalEnv() {
 	try {
 		const envText = await readFile(join(projectRoot, '.env'), 'utf8');
@@ -40,7 +42,7 @@ async function loadLocalEnv() {
 			}
 		}
 	} catch {
-		// .env가 없는 배포 환경에서는 등록된 환경변수를 사용합니다.
+		// Vercel/GitHub Actions에서는 등록된 환경변수를 사용합니다.
 	}
 }
 
@@ -53,6 +55,22 @@ function escapeXml(value) {
 		.replaceAll("'", '&apos;');
 }
 
+function getLatestLastmod(posts) {
+	const latestTimestamp = posts.reduce((latest, post) => {
+		const timestamp = Date.parse(post?.publishedAt ?? '');
+
+		if (Number.isNaN(timestamp)) {
+			return latest;
+		}
+
+		return Math.max(latest, timestamp);
+	}, 0);
+
+	return latestTimestamp > 0
+		? new Date(latestTimestamp).toISOString()
+		: null;
+}
+
 await loadLocalEnv();
 
 const siteOrigin = String(process.env.SITE_ORIGIN ?? '').replace(/\/+$/, '');
@@ -61,36 +79,82 @@ if (!siteOrigin) {
 	throw new Error('SITE_ORIGIN 환경변수가 필요합니다.');
 }
 
-/**
- * 검색결과에 남길 Vercel 허브 페이지만 넣습니다.
- * 리디렉션되는 /nb/... 주소는 넣지 않습니다.
- *
- * 이후 /blog/rapperkjm/1 같은 고유한 목록 페이지를 만들면
- * 이 배열에 추가할 수 있습니다.
- */
-const siteUrls = [`${siteOrigin}/`];
+const postsPath = join(
+	projectRoot,
+	'src',
+	'lib',
+	'server',
+	'generated-posts.json'
+);
 
-const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${siteUrls
-	.map(
-		(url) => `\t<url>
-\t\t<loc>${escapeXml(url)}</loc>
-\t</url>`
-	)
-	.join('\n')}
-</urlset>
-`;
+let posts = [];
 
-const robotsText = `User-agent: *
-Allow: /
+try {
+	const postsText = await readFile(postsPath, 'utf8');
+	const parsed = JSON.parse(postsText);
 
-Sitemap: ${siteOrigin}/sitemap.xml
-`;
+	if (Array.isArray(parsed)) {
+		posts = parsed;
+	}
+} catch (error) {
+	console.warn('generated-posts.json을 읽지 못했습니다.');
+	console.warn(error);
+}
+
+const sortedPosts = [...posts].sort((a, b) => {
+	const aTime = Date.parse(a?.publishedAt ?? '');
+	const bTime = Date.parse(b?.publishedAt ?? '');
+	const normalizedATime = Number.isNaN(aTime) ? 0 : aTime;
+	const normalizedBTime = Number.isNaN(bTime) ? 0 : bTime;
+
+	return normalizedBTime - normalizedATime;
+});
+
+const totalPages = Math.max(
+	1,
+	Math.ceil(sortedPosts.length / ARCHIVE_PAGE_SIZE)
+);
+
+const sitePages = [
+	{
+		url: `${siteOrigin}/`,
+		lastmod: getLatestLastmod(sortedPosts.slice(0, ARCHIVE_PAGE_SIZE))
+	}
+];
+
+for (let page = 2; page <= totalPages; page += 1) {
+	const start = (page - 1) * ARCHIVE_PAGE_SIZE;
+	const pagePosts = sortedPosts.slice(start, start + ARCHIVE_PAGE_SIZE);
+
+	sitePages.push({
+		url: `${siteOrigin}/archive/${page}`,
+		lastmod: getLatestLastmod(pagePosts)
+	});
+}
+
+const sitemapXml =
+	`<?xml version="1.0" encoding="UTF-8"?>\n` +
+	`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+	sitePages
+		.map(
+			(page) =>
+				`\t<url>\n` +
+				`\t\t<loc>${escapeXml(page.url)}</loc>` +
+				(page.lastmod
+					? `\n\t\t<lastmod>${escapeXml(page.lastmod)}</lastmod>`
+					: '') +
+				`\n\t</url>`
+		)
+		.join('\n') +
+	`\n</urlset>\n`;
+
+const robotsText =
+	`User-agent: *\n` +
+	`Allow: /\n\n` +
+	`Sitemap: ${siteOrigin}/sitemap.xml\n`;
 
 await mkdir(staticDir, { recursive: true });
 
-// 기존 분할 sitemap에는 /nb/... 주소가 들어 있으므로 제거합니다.
 await rm(join(staticDir, 'sitemaps'), {
 	recursive: true,
 	force: true
@@ -99,5 +163,7 @@ await rm(join(staticDir, 'sitemaps'), {
 await writeFile(join(staticDir, 'sitemap.xml'), sitemapXml, 'utf8');
 await writeFile(join(staticDir, 'robots.txt'), robotsText, 'utf8');
 
-console.log(`Generated sitemap for ${siteUrls.length} hub page(s).`);
+console.log(`Generated sitemap for ${sitePages.length} listing page(s).`);
+console.log(`Stored posts: ${sortedPosts.length}`);
+console.log(`Archive pages: ${Math.max(0, totalPages - 1)}`);
 console.log(`Sitemap: ${siteOrigin}/sitemap.xml`);
