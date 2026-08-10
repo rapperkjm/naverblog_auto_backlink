@@ -1,19 +1,20 @@
-import type { PageServerLoad } from './$types';
-import { getAllPosts } from '$lib/server/posts';
+import {
+	getArchiveTotalPages,
+	POSTS_PER_ARCHIVE_PAGE
+} from '$lib/server/archive-pagination';
 import { getSiteConfig } from '$lib/server/config';
-import { toBacklinkUrl } from '$lib/server/xml';
+import { getAllPosts } from '$lib/server/posts';
+import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async () => {
-  const config = getSiteConfig();
-  const posts = await getAllPosts();
+	const config = getSiteConfig();
+	const posts = await getAllPosts();
 
-  return {
-    siteTitle: config.siteTitle,
-    siteDescription: config.siteDescription,
-    totalCount: posts.length,
-    posts: posts.slice(0, 50).map((post) => ({
-      ...post,
-      backlinkUrl: toBacklinkUrl(config.siteOrigin, post.blogId, post.logNo)
-    }))
-  };
+	return {
+		siteTitle: config.siteTitle,
+		siteDescription: config.siteDescription,
+		totalCount: posts.length,
+		totalPages: getArchiveTotalPages(posts.length),
+		posts: posts.slice(0, POSTS_PER_ARCHIVE_PAGE)
+	};
 };
