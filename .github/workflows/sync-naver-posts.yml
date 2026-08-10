@@ -3,20 +3,28 @@ name: Sync Naver Posts
 on:
   workflow_dispatch:
   schedule:
-    # UTC 기준입니다. 한국시간 13:10 = UTC 04:10
-    - cron: '10 4 * * *'
+    # UTC 00:10, 06:10, 12:10, 18:10
+    # 한국 시간 09:10, 15:10, 21:10, 다음 날 03:10
+    - cron: '10 0,6,12,18 * * *'
 
 permissions:
   contents: write
 
+concurrency:
+  group: sync-naver-posts
+  cancel-in-progress: false
+
 jobs:
   sync:
+    # 공개 샘플 저장소에서는 Variables를 등록하기 전까지 안전하게 건너뜁니다.
+    if: ${{ vars.NAVER_BLOG_IDS != '' && vars.SITE_ORIGIN != '' }}
     runs-on: ubuntu-latest
 
     env:
-      NAVER_BLOG_IDS: ${{ secrets.NAVER_BLOG_IDS }}
-      SITE_ORIGIN: ${{ secrets.SITE_ORIGIN }}
-      SITEMAP_CHUNK_SIZE: 1000
+      NAVER_BLOG_IDS: ${{ vars.NAVER_BLOG_IDS }}
+      SITE_ORIGIN: ${{ vars.SITE_ORIGIN }}
+      NAVER_INCREMENTAL_MAX_PAGES: ${{ vars.NAVER_INCREMENTAL_MAX_PAGES || '5' }}
+      NAVER_KNOWN_PAGE_STOP_COUNT: ${{ vars.NAVER_KNOWN_PAGE_STOP_COUNT || '2' }}
 
     steps:
       - name: Checkout
@@ -25,11 +33,12 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Sync posts and generate sitemap
         run: npm run sync:naver
@@ -37,14 +46,15 @@ jobs:
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "No changes"
-            exit 0
-          fi
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add src/lib/server/generated-posts.json
           git add -A static
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
           git commit -m "Update generated Naver posts and sitemap"
           git push
