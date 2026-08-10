@@ -1,123 +1,115 @@
 <script lang="ts">
-  import { base, resolve } from '$app/paths';
-  import type { PageProps } from './$types';
+	import { asset, resolve } from '$app/paths';
+	import Pagination from '$lib/components/Pagination.svelte';
+	import PostList from '$lib/components/PostList.svelte';
+	import type { PageProps } from './$types';
 
-  let { data }: PageProps = $props();
+	let { data }: PageProps = $props();
 </script>
 
 <svelte:head>
-  <title>{data.siteTitle}</title>
-  <meta name="description" content={data.siteDescription} />
+	<title>{data.siteTitle}</title>
+	<meta name="description" content={data.siteDescription} />
 </svelte:head>
 
 <main class="page">
-  <section class="hero">
-    <p class="eyebrow">Naver Blog Backlink Hub</p>
-    <h1>{data.siteTitle}</h1>
-    <p>{data.siteDescription}</p>
-    <div class="actions">
-      <a href={`${base}/sitemap.xml`}>sitemap.xml 보기</a>
-      <a href={resolve('/feed.xml')}>feed.xml 보기</a>
-      <a href={`${base}/robots.txt`}>robots.txt 보기</a>
-    </div>
-  </section>
+	<section class="hero">
+		<p class="eyebrow">Naver Blog Link Hub</p>
+		<h1>{data.siteTitle}</h1>
+		<p>{data.siteDescription}</p>
 
-  <section class="posts">
-    <h2>최근/수집 글 {data.totalCount}개</h2>
-    {#if data.posts.length === 0}
-      <p>아직 수집된 글이 없습니다. <code>npm run sync:naver</code>를 실행하세요.</p>
-    {:else}
-      <ul>
-        {#each data.posts as post}
-          <li>
-            <a
-              href={post.url}
-              target="_blank"
-              rel="external noopener noreferrer"
-            >
-              {post.title}
-            </a>
-            <p>{post.descriptionText}</p>
-            <small>{post.blogId} · {post.logNo} · {post.source}</small>
-          </li>
-        {/each}
-      </ul>
-    {/if}
-  </section>
+		<div class="actions">
+			<a href={asset('/sitemap.xml')}>sitemap.xml 보기</a>
+			<a href={resolve('/feed.xml')}>feed.xml 보기</a>
+			<a href={asset('/robots.txt')}>robots.txt 보기</a>
+		</div>
+	</section>
+
+	<section class="posts">
+		<h2>최근 등록된 네이버 블로그 글</h2>
+		<p class="summary">
+			총 {data.totalCount}개 글 중 최근 {data.posts.length}개를 표시합니다.
+		</p>
+
+		<PostList posts={data.posts} />
+
+		<Pagination currentPage={1} totalPages={data.totalPages} />
+	</section>
 </main>
 
 <style>
-  :global(body) {
-    margin: 0;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    background: #f8fafc;
-    color: #0f172a;
-  }
+	:global(body) {
+		margin: 0;
+		font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+		background: #f8fafc;
+		color: #0f172a;
+	}
 
-  .page {
-    width: min(960px, calc(100% - 32px));
-    margin: 0 auto;
-    padding: 48px 0;
-  }
+	.page {
+		width: min(900px, calc(100% - 32px));
+		margin: 0 auto;
+		padding: 48px 0;
+	}
 
-  .hero,
-  .posts {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 24px;
-    padding: 28px;
-    box-shadow: 0 10px 30px rgb(15 23 42 / 0.06);
-  }
+	.hero,
+	.posts {
+		padding: 28px;
+		border: 1px solid #e2e8f0;
+		border-radius: 24px;
+		background: #ffffff;
+		box-shadow: 0 10px 30px rgb(15 23 42 / 0.06);
+	}
 
-  .hero + .posts {
-    margin-top: 24px;
-  }
+	.hero + .posts {
+		margin-top: 24px;
+	}
 
-  .eyebrow {
-    margin: 0 0 8px;
-    color: #2563eb;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
+	.eyebrow {
+		margin: 0 0 8px;
+		color: #174ea6;
+		font-weight: 800;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+	}
 
-  h1 {
-    margin: 0 0 12px;
-    font-size: clamp(2rem, 5vw, 3rem);
-  }
+	h1 {
+		margin: 0 0 12px;
+		font-size: clamp(2rem, 5vw, 3rem);
+	}
 
-  .actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 20px;
-  }
+	h2 {
+		margin: 0;
+		font-size: 1.45rem;
+	}
 
-  .actions a,
-  .posts a {
-    color: #2563eb;
-    font-weight: 700;
-  }
+	.hero > p:last-of-type,
+	.summary {
+		color: #64748b;
+		line-height: 1.65;
+	}
 
-  ul {
-    display: grid;
-    gap: 14px;
-    padding: 0;
-    list-style: none;
-  }
+	.summary {
+		margin: 10px 0 18px;
+	}
 
-  li {
-    padding: 16px;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-  }
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+		margin-top: 20px;
+	}
 
-  li p {
-    margin: 8px 0;
-    color: #475569;
-  }
+	.actions a {
+		padding: 9px 12px;
+		border-radius: 10px;
+		color: #174ea6;
+		background: #eff6ff;
+		font-weight: 750;
+		text-decoration: none;
+	}
 
-  small {
-    color: #64748b;
-  }
+	.actions a:hover,
+	.actions a:focus-visible {
+		text-decoration: underline;
+	}
 </style>

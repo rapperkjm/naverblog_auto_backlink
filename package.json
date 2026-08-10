@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "build": "npm run generate:sitemap && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "sync:naver": "node scripts/sync-naver-posts.mjs && npm run generate:sitemap",
+    "sync:naver:full": "node scripts/sync-naver-posts.mjs --full && npm run generate:sitemap",
     "generate:sitemap": "node scripts/generate-static-sitemap.mjs"
   },
   "dependencies": {
@@ -17,12 +18,12 @@
     "svelte": "^5.56.4"
   },
   "devDependencies": {
+    "@sveltejs/adapter-node": "^5.2.15",
     "@sveltejs/adapter-vercel": "^6.3.4",
     "@sveltejs/vite-plugin-svelte": "^5.1.1",
     "svelte-check": "^4.7.1",
     "typescript": "^5.9.2",
-    "vite": "^6.4.1",
-    "@sveltejs/adapter-node": "^5.2.15"
+    "vite": "^6.4.1"
   },
   "overrides": {
     "cookie": "^1.0.2"
